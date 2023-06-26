@@ -7,7 +7,7 @@ local function parse()
 -- vim.api.nvim_echo({ { vim.inspect(c), nil } }, false, {})
 end
 
-function M.request_handler(err, result)
+function M.request_handler(err, result, ctx)
     if err then
         vim.api.nvim_echo({ { vim.inspect(err), nil } }, false, {})
         return
@@ -37,7 +37,8 @@ function M.register_client()
     if vim.api.nvim_buf_is_loaded(M.bufnr) then
         local clients = utils.get_ra_clients(M.bufnr)
         if #clients > 0 then
-            M.client_id = clients[1].id
+            local client = clients[1]
+            M.client_id = client.id
         end
     end
 end
@@ -45,12 +46,6 @@ end
 function M.progress_handler(err, response, ctx)
     if err then
         return
-    end
-    vim.api.nvim_echo({{ vim.inspect(ctx), nil }}, false, {})
-    if M.client_id ~= nil then
-        if ctx.client_id ~= M.client_id then
-            return
-        end
     end
     local token = response.token
     local kind = response.value.kind
@@ -61,6 +56,8 @@ function M.progress_handler(err, response, ctx)
         return
     end
     print("Done...")
+
+    --vim.api.nvim_echo({{ vim.inspect(ctx), nil }}, false, {})
     M.ready = true
 end
 
@@ -77,8 +74,9 @@ function M.override_handler()
 end
 
 function M.setup()
-    --M.override_handler()
+    M.override_handler()
     M.inject_autocmds()
+
     -- at this point the client is registered.
     if M.ready == true then
         local client = vim.lsp.get_client_by_id(M.client_id)
@@ -90,16 +88,15 @@ function M.inject_autocmds()
     M.gid = vim.api.nvim_create_augroup("RustAnalyzerNvim", {
         clear = true,
     })
+    --vim.api.nvim_create_autocmd("LspProgress", {
+    --    pattern = "*",
+    --    group = M.gid,
+    --    callback = M.progress_handler
+    --})
     vim.api.nvim_create_autocmd("LspAttach", {
         pattern = "*.rs",
         group = M.gid,
-        callback = function()
-            M.register_client()
-            vim.api.nvim_create_autocmd("User LspProgressUpdate", {
-                group = M.gid,
-                callback = M.progress_handler
-            })
-        end
+        callback = M.register_client
     })
 end
 
