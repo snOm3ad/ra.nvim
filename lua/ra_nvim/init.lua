@@ -1,18 +1,24 @@
 local M = {
     config = nil,
-    ready = false,
+    errors = {},
+    requests = {}
 }
-
-local function parse()
--- vim.api.nvim_echo({ { vim.inspect(c), nil } }, false, {})
-end
+local cache = require("ra_nvim.cache")
+local utils = require("ra_nvim.utils")
+local parser = require("ra_nvim.parser")
 
 function M.request_handler(err, result, ctx)
+    table.remove(M.requests, 1)
     if err then
-        vim.api.nvim_echo({ { vim.inspect(err), nil } }, false, {})
+        table.insert(M.errors, {
+            err = "Request 'textDocument/InlayHint' failed.",
+            inner = err
+        })
         return
     end
-    vim.api.nvim_echo({{ vim.inspect(result), nil }}, false, {})
+    -- prepare cache
+    cache.store(result, parser)
+    cache.valid = true
 end
 
 local function build_inlay_hints_params(bufnr, encoding)
@@ -27,12 +33,14 @@ end
 
 function M.get_inlay_hints(client)
     local params = build_inlay_hints_params(M.bufnr, client.offset_encoding)
-    client.request("textDocument/inlayHint", params, M.request_handler, M.bufnr)
+    local status, req_id = client.request("textDocument/inlayHint", params, M.request_handler, M.bufnr)
+    if status then
+        table.insert(M.requests, req_id)
+    end
 end
 
 function M.register_client()
     M.bufnr = vim.api.nvim_get_current_buf()
-    local utils = require("ra_nvim.utils")
 
     if vim.api.nvim_buf_is_loaded(M.bufnr) then
         local clients = utils.get_ra_clients(M.bufnr)
@@ -49,19 +57,16 @@ function M.progress_handler(err, response, ctx)
     end
     local token = response.token
     local kind = response.value.kind
-    if token ~= "rustAnalyzer/Roots Scanned" then
+    if token ~= "rustAnalyzer/Roots Scanned" and kind ~= "end" then
         return
     end
-    if kind ~= "end" then
-        return
-    end
-    print("Done...")
-
-    --vim.api.nvim_echo({{ vim.inspect(ctx), nil }}, false, {})
-    M.ready = true
+    vim.api.nvim_exec_autocmds("User", {
+        pattern = "LspReady",
+        data = ctx
+    })
 end
 
-function M.override_handler()
+function M.append_progress_handler()
     local old_handler = vim.lsp.handlers["$/progress"]
     if old_handler then
         vim.lsp.handlers["$/progress"] = function(...)
@@ -74,25 +79,31 @@ function M.override_handler()
 end
 
 function M.setup()
-    M.override_handler()
+    -- TODO:
+    -- after 0.9.1 `LspProgress` should be used, i.e. you no longer append your
+    -- own handler, rather you simply attach to the event.
+    M.append_progress_handler()
     M.inject_autocmds()
-
-    -- at this point the client is registered.
-    if M.ready == true then
-        local client = vim.lsp.get_client_by_id(M.client_id)
-        M.get_inlay_hints(client)
-    end
+    M.count = 0
 end
 
 function M.inject_autocmds()
     M.gid = vim.api.nvim_create_augroup("RustAnalyzerNvim", {
         clear = true,
     })
-    --vim.api.nvim_create_autocmd("LspProgress", {
-    --    pattern = "*",
-    --    group = M.gid,
-    --    callback = M.progress_handler
-    --})
+    vim.api.nvim_create_autocmd("User", {
+        group = M.gid,
+        pattern = "LspReady",
+        callback = function(metadata)
+            local ctx = metadata.data
+            if ctx.client_id == M.client_id and metadata.buf == M.bufnr 
+                and next(M.requests) == nil and not cache.valid then
+                -- send request 
+                local client = vim.lsp.get_client_by_id(M.client_id)
+                M.get_inlay_hints(client)
+            end
+        end
+    })
     vim.api.nvim_create_autocmd("LspAttach", {
         pattern = "*.rs",
         group = M.gid,
