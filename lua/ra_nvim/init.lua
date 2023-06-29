@@ -6,6 +6,7 @@ local M = {
 local cache = require("ra_nvim.cache")
 local utils = require("ra_nvim.utils")
 local parser = require("ra_nvim.parser")
+local renderer = require("ra_nvim.renderer")
 
 function M.request_handler(err, result, ctx)
     table.remove(M.requests, 1)
@@ -16,9 +17,16 @@ function M.request_handler(err, result, ctx)
         })
         return
     end
+    local payload = { 
+        hints = result, 
+        client_id = ctx.client_id, 
+        bufnr = ctx.bufnr, 
+        uri = ctx.params.textDocument.uri 
+    }
+    --vim.api.nvim_echo({{ vim.inspect(payload), nil }}, false, {})
     -- prepare cache
-    cache.store(result, parser)
-    cache.valid = true
+    cache:store(payload, parser)
+    coroutine.resume(M.worker, M.config)
 end
 
 local function build_inlay_hints_params(bufnr, encoding)
@@ -78,13 +86,21 @@ function M.append_progress_handler()
     end
 end
 
-function M.setup()
+M.worker = coroutine.create(function(_config)
     -- TODO:
     -- after 0.9.1 `LspProgress` should be used, i.e. you no longer append your
     -- own handler, rather you simply attach to the event.
     M.append_progress_handler()
     M.inject_autocmds()
-    M.count = 0
+
+    coroutine.yield()
+
+    renderer.setup(cache)
+end)
+
+function M.setup(config)
+    M.config = config
+    coroutine.resume(M.worker, M.config)
 end
 
 function M.inject_autocmds()
