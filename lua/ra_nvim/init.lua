@@ -27,18 +27,9 @@ function M.request_handler(err, result, ctx)
     coroutine.resume(M.worker, M.config)
 end
 
-local function build_inlay_hints_params(bufnr, encoding)
-    local lines = vim.api.nvim_buf_line_count(bufnr)
-    local last_line = vim.api.nvim_buf_get_lines(bufnr, lines - 1, lines, true)
-    -- columns should be 0-based i.e. something like "}" contains 1 character
-    -- therefore (-1) to get rid of it, plus another (-1) to get rid of the EOL char.
-    local cols = #(last_line[1]) - 2
-
-    return vim.lsp.util.make_given_range_params({ 1, 0 }, { lines, cols }, bufnr, encoding)
-end
 
 function M.get_inlay_hints(client)
-    local params = build_inlay_hints_params(M.bufnr, client.offset_encoding)
+    local params = utils.build_req_params(M.bufnr, client.offset_encoding)
     local status, req_id = client.request("textDocument/inlayHint", params, M.request_handler, M.bufnr)
     if status then
         table.insert(M.requests, req_id)
