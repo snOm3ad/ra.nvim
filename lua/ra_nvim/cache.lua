@@ -8,8 +8,7 @@ function _M:store(payload, parser)
         bufnr = payload.bufnr,
         uri = payload.uri,
     }
-    self.raw_hints = payload.hints
-    self.hints = parser.parse(payload.hints)
+    self.hints = payload.hints
     self.valid = true
 end
 
