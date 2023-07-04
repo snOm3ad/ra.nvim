@@ -5,7 +5,6 @@ local M = {
 }
 local cache = require("ra_nvim.cache")
 local utils = require("ra_nvim.utils")
-local parser = require("ra_nvim.parser")
 local renderer = require("ra_nvim.renderer")
 
 function M.request_handler(err, result, ctx)
@@ -23,9 +22,8 @@ function M.request_handler(err, result, ctx)
         bufnr = ctx.bufnr, 
         uri = ctx.params.textDocument.uri 
     }
-    --vim.api.nvim_echo({{ vim.inspect(payload), nil }}, false, {})
     -- prepare cache
-    cache:store(payload, parser)
+    cache:store(payload)
     coroutine.resume(M.worker, M.config)
 end
 
@@ -95,7 +93,8 @@ M.worker = coroutine.create(function(_config)
 
     coroutine.yield()
 
-    renderer.setup(cache)
+    renderer.setup()
+    renderer.render(cache.hints, cache.file.bufnr)
 end)
 
 function M.setup(config)

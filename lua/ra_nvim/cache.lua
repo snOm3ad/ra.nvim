@@ -2,7 +2,7 @@ local _M = {}
 
 _M.__index = _M
 
-function _M:store(payload, parser)
+function _M:store(payload)
     self.client_id = payload.client_id
     self.file = {
         bufnr = payload.bufnr,
