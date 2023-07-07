@@ -6,6 +6,7 @@ local M = {
 local cache = require("ra_nvim.cache")
 local utils = require("ra_nvim.utils")
 local renderer = require("ra_nvim.renderer")
+local co = coroutine
 
 function M.request_handler(err, result, ctx)
     table.remove(M.requests, 1)
@@ -24,7 +25,7 @@ function M.request_handler(err, result, ctx)
     }
     -- prepare cache
     cache:store(payload)
-    coroutine.resume(M.worker, M.config)
+    co.resume(M.worker, M.config)
 end
 
 
@@ -75,28 +76,43 @@ function M.append_progress_handler()
     end
 end
 
-M.worker = coroutine.create(function(_config)
+M.worker = co.create(function(_config)
     -- TODO:
     -- after 0.9.1 `LspProgress` should be used, i.e. you no longer append your
     -- own handler, rather you simply attach to the event.
+    --
+    -- TODO:
+    -- currently this does __not__ work when there are multiple buffers open,
+    -- it loads the inlay hints for the first buffer but fails to load them for
+    -- all subsequent buffers.
+    --
+    -- Create client module with `is_ready` prop, use that to know when we can
+    -- fire requests like a madman with no problems at all. Subsequent requests
+    -- should be fired whenever
     M.append_progress_handler()
     M.inject_autocmds()
 
-    coroutine.yield()
+    co.yield()
 
     renderer.setup()
-    renderer.render(cache.hints, cache.file.bufnr)
+    while true do
+        renderer.render(cache.hints, cache.file.bufnr)
+        co.yield()
+    end
+
 end)
 
 function M.setup(config)
     M.config = config
-    coroutine.resume(M.worker, M.config)
+    co.resume(M.worker, M.config)
 end
 
 function M.inject_autocmds()
     M.gid = vim.api.nvim_create_augroup("RustAnalyzerNvim", {
         clear = true,
     })
+    -- mistake is here... this only gets fired once.
+    -- need to make sure to 
     vim.api.nvim_create_autocmd("User", {
         group = M.gid,
         pattern = "LspReady",
