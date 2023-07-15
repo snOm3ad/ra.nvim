@@ -1,19 +1,24 @@
-local _M = {}
+local M = {
+    count = 0
+    storage = {}
+}
 
-_M.__index = _M
 
-function _M:store(payload)
-    self.client_id = payload.client_id
-    self.file = {
-        bufnr = payload.bufnr,
-        uri = payload.uri,
+function M.store(payload)
+    local id = M.count
+    M.storage[id] = {
+        file = {
+            bufnr = payload.bufnr,
+            uri = payload.uri,
+        }
+        hints = payload.hints
     }
-    self.hints = payload.hints
-    self.valid = true
+    M.count = M.count + 1
+    return id
 end
 
-function _M:clone()
-    return vim.deepcopy(self)
+function M.get(cache_id)
+    return M.storage[cache_id]
 end
 
-return setmetatable({}, _M)
+return M

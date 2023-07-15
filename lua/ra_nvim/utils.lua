@@ -10,17 +10,16 @@ function M.build_req_params(bufnr, encoding)
     return vim.lsp.util.make_given_range_params({ 1, 0 }, { lines, cols }, bufnr, encoding)
 end
 
-function M.get_ra_clients(buffer)
-    local ra_clients = {}
+function M.is_ra_client(client_id)
     local clients = vim.lsp.get_active_clients({
-        bufnr = buffer
+        id = client_id
     })
-    for _, c in pairs(clients) do
-        if c.name == "rust_analyzer" then
-            table.insert(ra_clients, c)
+    if clients ~= nil then
+        if clients[1].name == "rust_analyzer" then
+            return true
         end
     end
-    return ra_clients
+    return false
 end
 
 
