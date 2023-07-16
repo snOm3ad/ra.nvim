@@ -3,6 +3,7 @@ local M = {
 }
 
 local inner = require("ra_nvim.clients.client")
+local utils = require("ra_nvim.utils")
 
 function M.get(client_id)
     return M.active[client_id]
@@ -24,7 +25,6 @@ function M.remove_buf(client_id, bufnr)
     end
 end
 
-
 function M.setup(bufnr, lsp_client)
     local client = inner:new(lsp_client)
     M.active[client.id] = client
@@ -33,25 +33,6 @@ function M.setup(bufnr, lsp_client)
         client.buffers[bufnr] = true
     end
     return client.id
-end
-
-function M.request_handler(err, result, ctx)
-    local client = M.get(ctx.client_id)
-    table.remove(client.requests, 1)
-    if err then
-        table.insert(client.errors, {
-            err = "Request 'textDocument/InlayHint' failed.",
-            inner = err
-        })
-        return
-    end
-    local payload = { 
-        hints = result, 
-        client_id = client.id, 
-        bufnr = ctx.bufnr, 
-        uri = ctx.params.textDocument.uri 
-    }
-    return payload
 end
 
 function M.has_pending_requests(client_id)
@@ -68,7 +49,7 @@ function M.get_inlay_hints(client_id, bufnr)
         client:add_buf(bufnr)
     end
     local params = utils.build_req_params(bufnr, client.offset_encoding)
-    local status, req_id = client.get("textDocument/inlayHint", params, M.request_handler, bufnr)
+    local status, req_id = client.get("textDocument/inlayHint", params, client.inlay_hints_handler, bufnr)
     if status then
         table.insert(client.requests, req_id)
     end

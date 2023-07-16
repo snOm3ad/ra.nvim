@@ -1,20 +1,18 @@
 local M = {
-    count = 0
     storage = {}
 }
 
 
 function M.store(payload)
-    local id = M.count
-    M.storage[id] = {
+    local bufnr = payload.bufnr
+    M.storage[bufnr] = {
         file = {
-            bufnr = payload.bufnr,
+            bufnr = bufnr,
             uri = payload.uri,
-        }
+        },
         hints = payload.hints
     }
-    M.count = M.count + 1
-    return id
+    return bufnr
 end
 
 function M.get(cache_id)

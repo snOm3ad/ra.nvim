@@ -1,6 +1,5 @@
-
 local client = {}
-local mt_client { __index = client }
+client.__index = client
 
 
 function client:new(lsp_client)
@@ -8,13 +7,36 @@ function client:new(lsp_client)
         id = lsp_client.id, 
         buffers = {},
         encoding = lsp_client.offset_encoding,
-        M.get = lsp_client.request,
+        is_ready = false,
+        has_og_handler = true,
+        get = lsp_client.request,
         requests = {},
         errors = {},
-    }, client_mt)
-        
+    }, client)
+end
 
-function client:add_buff(bufnr)
+-- TODO: these functions are not carried over to the `client` objects
+
+function client:inlay_hints_handler(err, result, ctx)
+    table.remove(self.requests, 1)
+    if err then
+        table.insert(self.errors, {
+            err = "Request 'textDocument/InlayHint' failed.",
+            inner = err,
+        })
+        return
+    end
+    self.is_ready = true
+    local payload = {
+        hints = result,
+        client_id = self.id,
+        bufnr = ctx.bufnr,
+        uri = ctx.params.textDocument.uri,
+    }
+    return payload
+end
+
+function client:add_buf(bufnr)
     if self.buffers[bufnr] ~= nil then
         return true
     end
@@ -26,3 +48,5 @@ function client:remove_buf(bufnr)
     self.buffers[bufnr] = nil
     return true
 end
+
+return client
