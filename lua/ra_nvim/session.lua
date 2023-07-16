@@ -154,15 +154,6 @@ function M.setup(config)
     -- TODO:
     -- after 0.9.1 `LspProgress` should be used, i.e. you no longer append your
     -- own handler, rather you simply attach to the event.
-    --
-    -- TODO:
-    -- currently this does __not__ work when there are multiple buffers open,
-    -- it loads the inlay hints for the first buffer but fails to load them for
-    -- all subsequent buffers.
-    --
-    -- Create client module with `is_ready` prop, use that to know when we can
-    -- fire requests like a madman with no problems at all. Subsequent requests
-    -- should be fired whenever
     M.append_progress_handler()
     M.inject_autocmds()
     renderer.setup()
