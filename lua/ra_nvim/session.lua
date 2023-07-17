@@ -17,7 +17,6 @@ end
 
 function M.register(bufnr, client_id)
     bufnr = bufnr or vim.api.nvim_get_current_buf()
-
     local record = M.buffers[bufnr]
     if record == nil then
         -- client may exist for another buffer.
@@ -121,7 +120,6 @@ function M.inject_autocmds()
         callback = function(md)
             local ctx = md.data
             local client = clients.get(ctx.client_id)
-            -- TODO: must ensure we don't override this more than once..
             if client.has_og_handler then
                 local inner = client.inlay_hints_handler
                 client.inlay_hints_handler = function(...)
@@ -138,6 +136,7 @@ end
 
 M.painter = co.create(function()
     -- At this point the storage is ready, we paint...
+    -- TODO: handle re-paints
     while true do
         local bufnr = vim.api.nvim_get_current_buf()
         local record = M.buffers[bufnr]
