@@ -9,7 +9,9 @@ function record:new(client_id, cache_id)
 end
 
 function record:replace(record)
+    local me = self
     self = record
+    self.renders = me.renders
 end
 
 return record

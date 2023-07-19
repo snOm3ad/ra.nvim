@@ -9,67 +9,59 @@ local storage = require("ra_nvim.cache")
 local renderer = require("ra_nvim.renderer")
 local inner = require("ra_nvim.session.record")
 
+local function create_record(client_id, bufnr)
+    if client_id == nil then 
+        return 
+    end
+    -- client may exist for another buffer.
+    local client = clients.get(client_id)
+    if client == nil then
+        local clnts = vim.lsp.get_active_clients({ id = client_id })
+        local cid = clients.setup(bufnr, clnts[1])
+        return inner:new(cid, nil)
+    end
+    -- TODO: check for success
+    local _ = client:add_buf(bufnr)
+    return inner:new(client.id, nil)
+end
 
 function M.register(bufnr, client_id)
     bufnr = bufnr or vim.api.nvim_get_current_buf()
     local record = M.buffers[bufnr]
-    if record == nil then
-        -- client may exist for another buffer.
-        local client = clients.get(client_id)
-        if client ~= nil then
-            -- TODO: check success
-            local _ = client:add_buf(bufnr)
 
-            if client.is_ready then
-                vim.api.nvim_exec_autocmds("User", {
-                    pattern = "FireInlayHintsRequest",
-                    data = {
-                        client_id = client.id,
-                        bufnr = bufnr
-                    }
-                })
-            end
-        else
-            local clnts = vim.lsp.get_active_clients({
-                id = client_id
-            })
-            local cid = clients.setup(bufnr, clnts[1])
-            add_record(bufnr, client_id, nil)
-        end
+    if record == nil then
+        record = create_record(client_id, bufnr)
+        M.buffers[bufnr] = record
     else
-        local alive = vim.lsp.get_active_clients({
-            id = record.client_id,
-            bufnr = bufnr,
-        })
-        if #alive == 0 then
-            -- remove buffer from old client
-            clients.remove_buf(record.client_id, bufnr)
-            -- assign new client to this buffer
-            record.client_id = client_id
-            record.cache_id = nil
-            vim.tbl_deep_extend("force", M.buffers[bufnr], record)
-        end
-        if record.cache_id ~= nil then
-            return
-        end
         -- NOTE: it's possible a new client was registered for the buffer, i.e.
         -- the buffer has more than one client. But we don't care about this
         -- because we only want to work with one of the clients, so as long as
         -- the client we intially registered keeps itself attached to the buffer
         -- then we do nothing.
-        local client = clients.get(record.client_id)
-        if client.is_ready and #client.requests == 0 then
-            vim.api.nvim_exec_autocmds("User", {
-                pattern = "FireInlayHintsRequest",
-                data = {
-                    client_id = record.client_id,
-                    bufnr = bufnr
-                }
-            })
+        local still_linked = #(vim.lsp.get_active_clients({
+            id = record.client_id,
+            bufnr = bufnr,
+        })) == 1
+        if still_linked == false then
+            -- remove buffer from old client
+            clients.remove_buf(record.client_id, bufnr)
+            -- assign new client to this buffer
+            local new_record = inner:new(client.id, nil)
+            record:replace(new_record)
         end
     end
-end
 
+    local client = clients.get(record.client_id)
+    if client.is_ready and #client.requests == 0 then
+        vim.api.nvim_exec_autocmds("User", {
+            pattern = "FireInlayHintsRequest",
+            data = {
+                client_id = client.id,
+                bufnr = bufnr
+            }
+        })
+    end
+end
 
 function M.progress_handler(err, response, ctx)
     if err then
@@ -121,7 +113,8 @@ function M.inject_autocmds()
                 local inner = client.inlay_hints_handler
                 client.inlay_hints_handler = function(...)
                     local payload = inner(client, ...)
-                    M.buffers[payload.bufnr].cache_id = storage.store(payload)
+                    local record = M.buffers[payload.bufnr]
+                    record.cache_id = storage.store(payload)
                     co.resume(M.painter)
                 end
                 client.has_og_handler = false
@@ -129,18 +122,31 @@ function M.inject_autocmds()
             clients.get_inlay_hints(client.id, ctx.bufnr)
         end
     })
+    vim.api.nvim_create_autocmd("BufModifiedSet", {
+        group = "RustAnalyzerNvim",
+        pattern = "*.rs",
+        callback = function(md)
+            M.register(md.buf, nil)
+        end
+    })
 end
 
 
 M.painter = co.create(function()
     -- At this point the storage is ready, we paint...
-    -- TODO: handle re-paints
     while true do
         local bufnr = vim.api.nvim_get_current_buf()
         local record = M.buffers[bufnr]
         if record and record.cache_id then
             local cache = storage.get(record.cache_id)
-            renderer.render(cache.hints, cache.file.bufnr)
+            if record.renders == 0 then
+                renderer.render(cache.hints, cache.file.bufnr)
+                record.renders = 1
+            else
+                renderer.clear(cache.file.bufnr)
+                renderer.render(cache.hints, cache.file.bufnr)
+                record.renders = record.renders + 1
+            end
         end
         co.yield()
     end
@@ -155,3 +161,5 @@ function M.setup(config)
     M.inject_autocmds()
     renderer.setup()
 end
+
+return M
