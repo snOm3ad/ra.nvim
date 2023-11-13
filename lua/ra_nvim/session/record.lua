@@ -1,4 +1,5 @@
 local record = {}
+record.__index = record
 
 function record:new(client_id, cache_id)
     return setmetatable({
