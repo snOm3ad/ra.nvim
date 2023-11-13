@@ -38,15 +38,15 @@ function M.register(bufnr, client_id)
         -- because we only want to work with one of the clients, so as long as
         -- the client we intially registered keeps itself attached to the buffer
         -- then we do nothing.
-        local still_linked = #(vim.lsp.get_active_clients({
+        local is_buf_orphaned = #(vim.lsp.get_active_clients({
             id = record.client_id,
             bufnr = bufnr,
-        })) == 1
-        if still_linked == false then
+        })) == 0
+        if is_buf_orphaned then
             -- remove buffer from old client
             clients.remove_buf(record.client_id, bufnr)
             -- assign new client to this buffer
-            local new_record = inner:new(client.id, nil)
+            local new_record = inner:new(client_id, nil)
             record:replace(new_record)
         end
     end
@@ -113,9 +113,11 @@ function M.inject_autocmds()
                 local inner = client.inlay_hints_handler
                 client.inlay_hints_handler = function(...)
                     local payload = inner(client, ...)
-                    local record = M.buffers[payload.bufnr]
-                    record.cache_id = storage.store(payload)
-                    co.resume(M.painter)
+                    if payload then
+                        local record = M.buffers[payload.bufnr]
+                        record.cache_id = storage.store(payload)
+                        co.resume(M.painter)
+                    end
                 end
                 client.has_og_handler = false
             end
@@ -155,8 +157,8 @@ end)
 
 function M.setup(config)
     -- TODO:
-    -- after 0.9.1 `LspProgress` should be used, i.e. you no longer append your
-    -- own handler, rather you simply attach to the event.
+    -- `LspProgress` should be used, i.e. you no longer append your own
+    -- handler, rather you simply attach to the event.
     M.append_progress_handler()
     M.inject_autocmds()
     renderer.setup()
