@@ -26,7 +26,6 @@ function client:inlay_hints_handler(err, result, ctx)
         })
         return
     end
-    self.is_ready = true
     local payload = {
         hints = result,
         client_id = self.id,
