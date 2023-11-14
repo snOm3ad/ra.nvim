@@ -15,8 +15,6 @@ function client:new(lsp_client)
     }, client)
 end
 
--- TODO: these functions are not carried over to the `client` objects
-
 function client:inlay_hints_handler(err, result, ctx)
     table.remove(self.requests, 1)
     if err then

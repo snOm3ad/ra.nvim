@@ -93,7 +93,6 @@ end
 
 
 function M.inject_autocmds()
-    -- TODO: need to subscribe to `BufModifiedSet`
     vim.api.nvim_create_autocmd("User", {
         group = "RustAnalyzerNvim",
         pattern = "LspClientReady",
