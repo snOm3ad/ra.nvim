@@ -28,7 +28,7 @@ require("lazy").setup {
 This plugin is a temporary solution while [native support](https://github.com/neovim/neovim/blob/master/runtime/lua/vim/lsp/inlay_hint.lua) for inlay-hints get stabilized in neovim. Contains no dependency to `lspconfig` or any other third party package and _also_ has crazy fast startup time:
 
 
-![Startup Time Comparison](https://pasteboard.co/gDo7sXobBN5D.png)
+![Startup Time Comparison](https://gcdnb.pbrd.co/images/gDo7sXobBN5D.png?o=1)
 
 
 Also I have seen a movement lately to get rid of the `setup` function. The premise of the argument is very convincing, however, I will defer this decision until a consensus has been been reached by the community at large on what is the best way to separate plugin initialization vs configuration.
