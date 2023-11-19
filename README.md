@@ -16,10 +16,12 @@ Using `lazy.nvim` in your config file, you simply call `setup`:
 
 ```lua
 require("lazy").setup {
+  {
     "snom3ad/ra.nvim",
     config = function()
         require("ra_nvim").setup()
     end,
+  }
 }
 ```
 
