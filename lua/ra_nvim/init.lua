@@ -2,7 +2,7 @@ local M = {
     config = nil,
 }
 
-function M.setup(config)
+function M.setup()
     M.gid = vim.api.nvim_create_augroup("RustAnalyzerNvim", {
         clear = true
     })
@@ -14,7 +14,7 @@ function M.setup(config)
             if utils.is_ra_client(args.data.client_id) then
                 local session = require("ra_nvim.session")
                 session.register(args.buf, args.data.client_id)
-                session.setup(config)
+                session.setup()
             end
         end
     })

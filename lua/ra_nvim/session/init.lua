@@ -154,7 +154,7 @@ M.painter = co.create(function()
 
 end)
 
-function M.setup(config)
+function M.setup()
     -- TODO:
     -- `LspProgress` should be used, i.e. you no longer append your own
     -- handler, rather you simply attach to the event.
